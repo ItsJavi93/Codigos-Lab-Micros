@@ -1,0 +1,102 @@
+//C++, Si libreria da problemas usar #include "stm32f4xx.h"
+#include "Stm32f.h"
+//GPIO_TypeDef *p;
+float tiempo=0.001;
+int _delay_=0;
+unsigned char Palabra[33]="La pantalla LCD es una locura   ";
+
+void ConfigurarPin(GPIO_TypeDef *p,int pin,unsigned char moder, unsigned char pupdr=0){
+RCC->AHB1ENR |= 0x07;
+p->MODER &= ~(3UL<<2*pin); // leer 1
+p->MODER |= ((moder&3)<<2*pin);//Setea los pines siguiendo lo mismo que pasa en 1
+p->PUPDR &= ~(3UL<<2*pin); //Funciona igual que el moder ya que cambia 2 bits
+p->PUPDR |= ((pupdr&3)<<2*pin);
+};
+
+void SetPin(GPIO_TypeDef *p,int pin,bool e){
+if(e) //Si quiero un 1 en el pin
+p->BSRR |= (1UL<<pin);//seteelo
+else 
+p->BSRR |= (1UL<<(pin+16));//Reseteelo
+};
+
+bool GetPin(GPIO_TypeDef *p,int pin){ //Obtiene info del pin
+if(p->IDR & (1UL<<pin))return true;
+else return false;
+
+}
+void delay(int d){//delay en milisegundos
+_delay_=d;
+while (_delay_!=0);
+}
+
+extern "C"{ //Codigo Externo
+	void SysTick_Handler(void){
+	//Rutina del SysTick
+	if(_delay_!=0)
+	_delay_--;
+	
+	}
+}
+
+void BusLCD(unsigned char d){// “memoria LCD”
+SetPin(GPIOC,0,d&1);
+SetPin(GPIOC,1,d&2);
+SetPin(GPIOC,2,d&4);
+SetPin(GPIOC,3,d&8);
+SetPin(GPIOC,4,d&16);
+SetPin(GPIOC,5,d&32);
+SetPin(GPIOC,6,d&64);
+SetPin(GPIOC,7,d&128);
+
+};
+
+void RS(bool e){//Activacion o Desactivación RS
+SetPin(GPIOC,8,e);
+};
+
+void E(bool e){//Activacion o Desactivación E
+SetPin(GPIOC,9,e);
+};
+
+void InstLCD(unsigned char i,bool r=0){// Instrucciones LCD
+RS(r);
+BusLCD(i);E(1);delay(1);E(0);delay(1);
+
+};
+
+
+int main(void){
+SystemCoreClockUpdate();
+SysTick_Config(SystemCoreClock*0.001); //El systick esta contando cada 1 ms
+
+//Inicio de Display 7 segmentos conectado a el puerto C en orden
+for(int i=0;i<10;i++)ConfigurarPin(GPIOC,i,1);
+delay(40);
+InstLCD(0x30);
+delay(5);
+InstLCD(0x30);
+delay(5);
+InstLCD(0x30);
+delay(5);
+InstLCD(0x38);
+InstLCD(0x06);
+InstLCD(0x0F);
+InstLCD(0x01);
+delay(3);
+
+//InstLCD(0x80 | 0x40);//Imprime en la segunda línea del display
+for(int f=0; f<33;f++){
+if(f!=16)
+InstLCD(Palabra[f],1);
+else{
+InstLCD(0x80 | 0x40);
+InstLCD(Palabra[16],1);
+}
+
+}
+
+while(1){};
+return 0;
+}
+
