@@ -1,9 +1,33 @@
 //C++, Si libreria da problemas usar #include "stm32f4xx.h"
 #include "Stm32f.h"
-//GPIO_TypeDef *p;
-float tiempo=0.001;
+
+unsigned char num[30]={0x3F,0x06,0x5B,0x4F,0x66,0x6D,0x7D,0x07,0x7F,0x67,0x77,0x7C,0x39,0x5E,0x79,0x71,0x74,0x30,0x1F,0x38,0x54,0x5C,0x73,0x67,0x50,0x78,0x1C,0x6E,0x00,0x00};// 0 a 9 y Abecedario Incompleto
+int d=0,u=0,uw=0;
 int _delay_=0;
-unsigned char Palabra[33]="La pantalla LCD es una locura   ";
+
+void delaySys(int d){//delay en segundos
+_delay_=d;
+while (_delay_!=0);
+}
+void delay(int time){//delay en milisegundos
+for(int n1=0;n1<time;n1++)__ASM("NOP");
+}
+extern "C"{//SysTick
+void SysTick_Handler(void){
+//Rutina del SysTick
+if(_delay_!=0)
+_delay_--;
+
+}
+}
+void mostrarnum(int m,long delts){
+
+GPIOC->ODR=(~num[m]^ 0x0100); delay(delts);//1 segmento
+//GPIOC->ODR=(~num[m]^ 0x0200); delay(delts);//1 segmento
+//GPIOC->ODR=(~num[m]^ 0x0400); delay(delts);//1 segmento
+//GPIOC->ODR=(~num[m]^ 0x0800); delay(delts);//1 segmento
+
+};
 
 void ConfigurarPin(GPIO_TypeDef *p,int pin,unsigned char moder, unsigned char pupdr=0){
 RCC->AHB1ENR |= 0x07;
@@ -16,7 +40,7 @@ p->PUPDR |= ((pupdr&3)<<2*pin);
 void SetPin(GPIO_TypeDef *p,int pin,bool e){
 if(e) //Si quiero un 1 en el pin
 p->BSRR |= (1UL<<pin);//seteelo
-else 
+else
 p->BSRR |= (1UL<<(pin+16));//Reseteelo
 };
 
@@ -25,78 +49,79 @@ if(p->IDR & (1UL<<pin))return true;
 else return false;
 
 }
-void delay(int d){//delay en milisegundos
-_delay_=d;
-while (_delay_!=0);
-}
 
 extern "C"{ //Codigo Externo
-	void SysTick_Handler(void){
-	//Rutina del SysTick
-	if(_delay_!=0)
-	_delay_--;
-	
-	}
+
+// Vector de interrupción EXTI 10 al 15
+void EXTI9_5_IRQHandler(void){
+
+if(GetPin(GPIOB,5)){
+	EXTI->PR|=(1UL<<5); // Apagado de bandera
+	delay(500);
+	if(GetPin(GPIOB,0)) mostrarnum(0+uw,3000);
+	else if(GetPin(GPIOB,1)) mostrarnum(4+uw,3000);
+	else if(GetPin(GPIOB,2)) mostrarnum(8+uw,3000);
+	else if(GetPin(GPIOB,3)) mostrarnum(12+uw,3000);
+}
+if(GetPin(GPIOB,6)){
+	EXTI->PR|=(1UL<<6); // Apagado de bandera
+	delay(500);
+	if(GetPin(GPIOB,0)) mostrarnum(1+uw,3000);
+	else if(GetPin(GPIOB,1)) mostrarnum(5+uw,3000);
+	else if(GetPin(GPIOB,2)) mostrarnum(9+uw,3000);
+	else if(GetPin(GPIOB,3)) mostrarnum(13+uw,3000);
+}
+if(GetPin(GPIOB,7)){
+	EXTI->PR|=(1UL<<7); // Apagado de bandera
+	delay(500);
+	if(GetPin(GPIOB,0)) mostrarnum(2+uw,3000);
+	else if(GetPin(GPIOB,1)) mostrarnum(6+uw,3000);
+	else if(GetPin(GPIOB,2)) mostrarnum(10+uw,3000);
+	else if(GetPin(GPIOB,3)) mostrarnum(14+uw,3000);
+}
+if(GetPin(GPIOB,8)){
+	EXTI->PR|=(1UL<<8); // Apagado de bandera
+	delay(500);
+	if(GetPin(GPIOB,0)) mostrarnum(3+uw,3000);
+	else if(GetPin(GPIOB,1)) mostrarnum(7+uw,3000);
+	else if(GetPin(GPIOB,2)) mostrarnum(11+uw,3000);
+	else if(GetPin(GPIOB,3)) mostrarnum(15+uw,3000);
+}
+}
 }
 
-void BusLCD(unsigned char d){// “memoria LCD”
-SetPin(GPIOC,0,d&1);
-SetPin(GPIOC,1,d&2);
-SetPin(GPIOC,2,d&4);
-SetPin(GPIOC,3,d&8);
-SetPin(GPIOC,4,d&16);
-SetPin(GPIOC,5,d&32);
-SetPin(GPIOC,6,d&64);
-SetPin(GPIOC,7,d&128);
-
-};
-
-void RS(bool e){//Activacion o Desactivación RS
-SetPin(GPIOC,8,e);
-};
-
-void E(bool e){//Activacion o Desactivación E
-SetPin(GPIOC,9,e);
-};
-
-void InstLCD(unsigned char i,bool r=0){// Instrucciones LCD
-RS(r);
-BusLCD(i);E(1);delay(1);E(0);delay(1);
-
-};
-
-
-int main(void){
+int main(void){ // Función principal main
 SystemCoreClockUpdate();
-SysTick_Config(SystemCoreClock*0.001); //El systick esta contando cada 1 ms
+SysTick_Config(SystemCoreClock*0.001); //El systick esta contando cada milisegundo
+RCC->APB2ENR|=RCC_APB2ENR_SYSCFGEN; //Activa SYSCFG
+//Configuracion Pines
+for(int i=0;i<4;i++)ConfigurarPin(GPIOB,i,1);
+for(int i=5;i<8;i++)ConfigurarPin(GPIOB,i,0);
+for(int i=0;i<12;i++)ConfigurarPin(GPIOC,i,1);
+ConfigurarPin(GPIOC,13,0);
 
-//Inicio de Display 7 segmentos conectado a el puerto C en orden
-for(int i=0;i<10;i++)ConfigurarPin(GPIOC,i,1);
-delay(40);
-InstLCD(0x30);
-delay(5);
-InstLCD(0x30);
-delay(5);
-InstLCD(0x30);
-delay(5);
-InstLCD(0x38);
-InstLCD(0x06);
-InstLCD(0x0F);
-InstLCD(0x01);
-delay(3);
+//Interrupciones
 
-//InstLCD(0x80 | 0x40);//Imprime en la segunda línea del display
-for(int f=0; f<33;f++){
-if(f!=16)
-InstLCD(Palabra[f],1);
-else{
-InstLCD(0x80 | 0x40);
-InstLCD(Palabra[16],1);
+EXTI->RTSR|=(1UL<<5)|(1UL<<6)|(1UL<<7)|(1UL<<8); // Activa interrupción por flanco de Subida en 5,6,7,8
+EXTI->IMR|=(1UL<<5)|(1UL<<6)|(1UL<<7)|(1UL<<8); // Activa interrupción 0,1,12,10
+SYSCFG->EXTICR[1]|=(1UL<<4); // Activa interacción 5 en puerto B
+SYSCFG->EXTICR[1]|=(1UL<<8); // Activa interacción 6 en puerto B
+SYSCFG->EXTICR[1]|=(1UL<<12); // Activa interacción 7 en puerto B
+SYSCFG->EXTICR[2]|=(1UL); // Activa interacción 8 en puerto B
+NVIC_EnableIRQ(EXTI9_5_IRQn); // Activa vector de interrupción
+
+
+while(1){ //Bucle infinito
+for(int i=0;i<4;i++){
+	SetPin(GPIOB,i,true);
+	delaySys(1z0);
+	SetPin(GPIOB,i,false);
 }
+if(!(GPIOC->IDR&(1UL<<13)))
+	uw=15;
+else
+	uw=0;
+}
+ return 0;
 
 }
-
-while(1){};
-return 0;
-}
-
